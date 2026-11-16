@@ -23,6 +23,7 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@grovehq/trellis": "0.1.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
