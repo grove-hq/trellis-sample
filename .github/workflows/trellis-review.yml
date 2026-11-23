@@ -1,0 +1,58 @@
+# Trellis frame — changes here require human ratification and will fail the Trellis check.
+#
+# Re-runs the Trellis check when a signature comment lands, so a code owner's
+# ratification of a frame touch clears it without a push. Nothing this job does
+# feeds the verdict: that comes only from the base-branch Trellis run it re-runs.
+name: Trellis review rerun
+
+on:
+  issue_comment:
+    types: [created, edited, deleted]
+
+permissions:
+  actions: write
+  pull-requests: read
+
+# An event that skips the job (a comment with no signature) gets a group of
+# its own: sharing one would cancel a ratification's run while
+# it waits for Trellis. An edit counts as a signature comment if it held one
+# before or after, so editing a signature out re-runs the check too.
+concurrency:
+  group: trellis-review-${{ github.event.issue.number }}-${{ !contains(github.event.comment.body, 'BEGIN SSH SIGNATURE') && !contains(github.event.changes.body.from, 'BEGIN SSH SIGNATURE') && github.run_id || 'act' }}
+  cancel-in-progress: true
+
+jobs:
+  rerun:
+    name: Trellis review rerun
+    if: ${{ github.event.issue.pull_request && (contains(github.event.comment.body, 'BEGIN SSH SIGNATURE') || contains(github.event.changes.body.from, 'BEGIN SSH SIGNATURE')) }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run Trellis for the PR head
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            // A comment's event carries no head sha, so read the PR.
+            const head_sha = (await github.rest.pulls.get({ ...context.repo, pull_number: context.issue.number })).data.head.sha;
+            // A run in progress may have read the comments before this one landed,
+            // so wait for it to finish, then re-run it.
+            for (let attempt = 0; attempt < 30; attempt++) {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                ...context.repo,
+                workflow_id: 'trellis.yml',
+                event: 'pull_request_target',
+                head_sha,
+                per_page: 1,
+              });
+              const run = data.workflow_runs[0];
+              if (!run) {
+                core.info('No Trellis run for this head yet; it will read the signature when it starts.');
+                return;
+              }
+              if (run.status === 'completed') {
+                await github.rest.actions.reRunWorkflow({ ...context.repo, run_id: run.id });
+                core.info(`Re-ran Trellis run ${run.id}.`);
+                return;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 10_000));
+            }
+            core.setFailed('Trellis did not finish within 5 minutes; re-run it from the PR checks.');

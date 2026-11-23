@@ -1,0 +1,12 @@
+[
+  {
+    "text": "eslint-disable",
+    "why": "Switches off a lint rule, and the tenant-isolation fence is one. Fix what the rule reports; to reach the database, call dbFor() in src/db/tenant-db.ts.",
+    "allow": [
+      {
+        "files": "README.md",
+        "why": "The README names the ban it describes."
+      }
+    ]
+  }
+]

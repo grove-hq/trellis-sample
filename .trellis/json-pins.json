@@ -1,0 +1,14 @@
+[
+  {
+    "files": "package.json",
+    "key": "scripts.lint",
+    "value": "eslint",
+    "why": "CI runs this script, and it is what enforces the import fence. It lints the whole repo."
+  },
+  {
+    "files": "package.json",
+    "key": "scripts.check:proxy-coverage",
+    "value": "tsx scripts/check-proxy-coverage.ts",
+    "why": "CI runs this script to check the gate covers every route the build serves."
+  }
+]

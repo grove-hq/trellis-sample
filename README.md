@@ -23,7 +23,7 @@ Every request is refused unless it carries a valid session or its path is on a s
 - `src/proxy.public-routes.ts` is the public list. Each entry says why it is public.
 - `scripts/check-proxy-coverage.ts` runs after the build. It fails if the gate's matcher skips a route the build serves, or if a public entry no longer matches any route.
 
-The first two files are the frame: the part of this pattern a human should own. Nothing in this repo enforces that yet.
+All three files are in [the frame](#the-frame): the part of this pattern a human owns.
 
 ### Tenant isolation
 
@@ -32,9 +32,25 @@ Every query carries the caller's organisation, because there is only one way to 
 - `src/db/tenant-db.ts` opens the database and keeps the connection to itself. Other code gets `dbFor(user)`, whose queries are all scoped to that user's organisation.
 - `eslint.config.mjs` declares an [import fence](https://github.com/grove-hq/trellis/blob/main/docs/utilities/import-fences.md): only that file may import the database driver, so no other file can open a connection of its own.
 
-Both files are the frame for this pattern.
+Both files are in [the frame](#the-frame).
 
 The database is SQLite in memory, so it resets when the server stops.
+
+## The frame
+
+The files a pattern depends on are listed in the frame, the marked block in `.github/CODEOWNERS`. A pull request that changes one fails the `Trellis` check until the file's owner signs that exact change:
+
+```bash
+node scripts/trellis/ratify.mjs <pr>                # lists the changes and prints a code
+node scripts/trellis/ratify.mjs <pr> --sign <code>  # asks for a fingerprint and posts the signature
+```
+
+Two files in `.trellis/` cover what a whole-file rule cannot:
+
+- `banned-text.json` bans `eslint-disable` on added lines, since a disable comment switches the import fence off.
+- `json-pins.json` pins the `lint` and `check:proxy-coverage` scripts in `package.json`, which are what CI runs.
+
+The check, the signing command and the two workflows are copied from Trellis's [framework](https://github.com/grove-hq/trellis/blob/main/docs/framework.md) into `scripts/trellis/` and `.github/workflows/`. They are in the frame too.
 
 ## The baseline
 

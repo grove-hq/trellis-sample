@@ -1,0 +1,4 @@
+# The keys whose signature ratifies a frame change, one per line:
+#   <github login, lower case> namespaces="trellis-ratify" <key type> <public key>
+# A login counts only for the frame files CODEOWNERS gives it.
+robertyates namespaces="trellis-ratify" sk-ecdsa-sha2-nistp256@openssh.com AAAAInNrLWVjZHNhLXNoYTItbmlzdHAyNTZAb3BlbnNzaC5jb20AAAAIbmlzdHAyNTYAAABBBFGKn8pwGM7UYgK9+hZLPACX97b8aAq5XG83XgG0Q6UmFMeyLGL3VI+pQ37LJ7XjeZIGMfMDO2clMAzLu0hy+ZYAAAAEc3NoOg==

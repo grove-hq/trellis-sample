@@ -1,0 +1,15 @@
+# The frame: files only their owner can change. A pull request that touches
+# one fails the Trellis check until that owner signs the change.
+# trellis:frame-begin
+/.github/CODEOWNERS                 @robertyates
+/.github/workflows/                 @robertyates
+/scripts/trellis/                   @robertyates
+/.trellis/                          @robertyates
+# Authentication: the gate, its public list, and the check that the gate covers every route.
+/src/proxy.ts                       @robertyates
+/src/proxy.public-routes.ts         @robertyates
+/scripts/check-proxy-coverage.ts    @robertyates
+# Tenant isolation: the one file that opens the database, and the lint config that fences it.
+/src/db/tenant-db.ts                @robertyates
+/eslint.config.mjs                  @robertyates
+# trellis:frame-end

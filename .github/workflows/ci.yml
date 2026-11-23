@@ -44,6 +44,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Trellis tests
+        run: pnpm test:trellis
+
       - name: Build
         run: pnpm build
 

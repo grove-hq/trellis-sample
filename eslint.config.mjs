@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Trellis framework, copied from grove-hq/trellis. It has its own tests.
+    "scripts/trellis/**",
   ]),
 
   // Tenant isolation: only the tenant-scoped client may open the database.
