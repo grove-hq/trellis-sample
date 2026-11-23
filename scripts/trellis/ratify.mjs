@@ -108,10 +108,10 @@ function run(command, args) {
 }
 
 // Fetches the PR's head and base as the Trellis workflow does, diff sources
-// only with nothing checked out, and hands `callback` their range. The refs are this
+// only with nothing checked out, and hands `listOrSign` their range. The refs are this
 // run's own and are removed after it: every worktree of a clone shares its refs,
 // so a fixed name would let an overlapping run change what this one signs.
-export async function withPrRange({ pr, baseRef, git = (args) => run("git", args) }, callback) {
+export async function withPrRange({ pr, baseRef, git = (args) => run("git", args) }, listOrSign) {
   const refs = `refs/trellis-ratify/${pr}-${randomUUID()}`;
   try {
     git(["fetch", "-q", "--no-tags", "origin", `+refs/pull/${pr}/head:${refs}/head`]);
@@ -119,7 +119,7 @@ export async function withPrRange({ pr, baseRef, git = (args) => run("git", args
     const head = git(["rev-parse", `${refs}/head`]);
     const baseTip = git(["rev-parse", `${refs}/base`]);
     const base = git(["merge-base", baseTip, head]);
-    return await callback({ base, head, baseTip });
+    return await listOrSign({ base, head, baseTip });
   } finally {
     git(["update-ref", "-d", `${refs}/head`]);
     git(["update-ref", "-d", `${refs}/base`]);
