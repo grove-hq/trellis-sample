@@ -7,7 +7,8 @@ export type PublicRoute = {
   readonly why: string;
 };
 
-export const publicRoutes: readonly PublicRoute[] = [  {
+export const publicRoutes: readonly PublicRoute[] = [
+  {
     path: "/login",
     why: "Creates the session, so no session exists yet.",
   },
