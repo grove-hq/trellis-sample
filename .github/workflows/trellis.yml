@@ -1,0 +1,173 @@
+# Trellis frame — changes here require human ratification and will fail the Trellis check.
+#
+# Runs the Trellis tripwire over every PR's diff. Trigger is deliberately
+# pull_request_target: the workflow YAML and the tripwire script always run
+# from the BASE branch, so a PR cannot edit the check's own logic in the same
+# change it is trying to sneak past it. PR code is fetched for diffing only and
+# is NEVER executed (no install, no build).
+name: Trellis
+
+on:
+  pull_request_target:
+    # `edited` covers a change of base branch. This run comes from the PR's base,
+    # so a pass earned against another branch must not carry over to this one.
+    # It also fires on a title or body edit; the job is not skipped for those,
+    # because a skipped required check counts as passed.
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# Serialize runs per PR so two rapid pushes can't race the sticky-comment
+# read-modify-write (each run's listComments would otherwise miss the other's
+# createComments, producing duplicate comments). cancel-in-progress is false:
+# Trellis is an enforcement gate intended to become a required check, and a
+# queued (not cancelled) run never leaves a required check in a non-success
+# state. The tripwire is a fast diff-only scan, so the queue cost is negligible.
+concurrency:
+  group: trellis-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  trellis:
+    name: Trellis
+    runs-on: ubuntu-latest
+    steps:
+      # nosemgrep: yaml.github-actions.security.pull-request-target-code-checkout.pull-request-target-code-checkout — false positive: this checks out the trusted BASE ref (base.ref), not the PR head. PR code is fetched for diffing only and never executed (see file header).
+      - name: Checkout base ref (trusted)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The live base branch, not the event's frozen base.sha: a re-run
+          # reads the current checks, frame list and CODEOWNERS.
+          ref: ${{ github.event.pull_request.base.ref }}
+          # Full history so base...head merge-base resolution works.
+          fetch-depth: 0
+
+      - name: Fetch PR head and live base tip (diff sources only — never executed)
+        # Pass event data through env rather than interpolating ${{ }} straight
+        # into the shell — the standard pull_request_target hardening pattern.
+        # (Both values are low-risk here — number is an int, base.ref is a branch
+        # in this repo, not the fork — but the file is a security frame, so it
+        # models the safe shape and keeps SAST quiet.)
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git fetch origin "+refs/pull/${PR_NUMBER}/head:refs/remotes/pr-head"
+          # The live tip of the base branch, not the event's frozen base.sha.
+          # Used to locate the merge-base below and as the base the JSON pins
+          # are checked against; never checked out or run.
+          git fetch --no-tags origin "+${BASE_REF}:refs/remotes/base-tip"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      # The PR's comments that carry a signature. The tripwire decides whether
+      # each one is a code owner's, over this PR's frame changes as they now are.
+      # trellis-review.yml re-runs this check when such a comment lands.
+      - name: Collect signatures
+        id: signatures
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const bodies = comments
+              .map((c) => c.body ?? '')
+              .filter((body) => body.includes('BEGIN SSH SIGNATURE'));
+            core.setOutput('json', JSON.stringify(bodies));
+
+      - name: Run tripwire (script from base checkout)
+        id: tripwire
+        env:
+          TRELLIS_SIGNATURES: ${{ steps.signatures.outputs.json }}
+          TRELLIS_RATIFY_TARGET: ${{ github.repository }}#${{ github.event.pull_request.number }}
+        run: |
+          HEAD_SHA="$(git rev-parse refs/remotes/pr-head)"
+          # Diff against the branch's true fork point, computed from the LIVE
+          # base tip. The event's base.sha is a frozen, point-in-time snapshot
+          # that can lag HEAD's actual fork point; when it does, base.sha is an
+          # ancestor of HEAD, the merge-base diff collapses, and every commit
+          # the base branch gained since that stale SHA (e.g. an intervening
+          # frame change) gets swept in as "added by this PR". merge-base of the
+          # live base tip and HEAD is the real fork point regardless of how far
+          # either side has advanced or how their commits interleave in time.
+          BASE_SHA="$(git merge-base refs/remotes/base-tip "$HEAD_SHA")"
+          # The fork point is as old as the branch, so the JSON pins are checked
+          # on the result of merging the PR into the base branch as it is now.
+          export BASE_TIP_SHA="$(git rev-parse refs/remotes/base-tip)"
+          rc=0
+          node scripts/trellis/tripwire.mjs --ci "$BASE_SHA" "$HEAD_SHA" > trellis-report.txt 2>&1 || rc=$?
+          cat trellis-report.txt
+          {
+            echo '## Trellis tripwire'
+            echo ''
+            echo '~~~'
+            cat trellis-report.txt
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          # Emit inline annotations on the live step stdout (NOT redirected to a
+          # file, so Actions parses the ::error:: workflow commands and attaches
+          # them to the offending file/line in the Files-changed diff and on the
+          # check). Same base/head and --ci allowlist semantics as the verdict
+          # run above; `|| true` keeps this presentation pass from changing the
+          # step result — the captured exit_code above owns pass/fail.
+          node scripts/trellis/tripwire.mjs --ci --annotations "$BASE_SHA" "$HEAD_SHA" || true
+
+      - name: Post or update sticky PR comment
+        if: ${{ always() && steps.tripwire.outputs.exit_code != '' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- trellis-tripwire -->';
+            const report = fs.readFileSync('trellis-report.txt', 'utf8').trim();
+            const hits = '${{ steps.tripwire.outputs.exit_code }}' !== '0';
+            const body = [
+              marker,
+              '## Trellis',
+              '',
+              '~~~',
+              report,
+              '~~~',
+            ].join('\n');
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else if (hits) {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      # The "Run tripwire" step above captures the exit code (so the Summary and
+      # sticky comment still post on a hit); this step is what actually fails the
+      # check. Re-print the report here so the failing step's OWN log explains
+      # why: GitHub auto-expands the failed step, and a bare `exit 1` with no
+      # output is the "the red check tells me nothing, I had to go hunt for the
+      # comment" complaint.
+      - name: Fail on hits
+        if: ${{ steps.tripwire.outputs.exit_code != '0' }}
+        run: |
+          echo "Trellis tripwire failed. The report below names each hit, the invariant it guards, and the sanctioned path. (Same report is in this run's Summary and in a sticky PR comment.)"
+          echo ""
+          cat trellis-report.txt
+          exit 1

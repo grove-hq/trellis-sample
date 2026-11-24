@@ -1,9 +1,5 @@
-<!-- BEGIN:nextjs-agent-rules -->
+## Trellis
 
-## This is NOT the Next.js you know
+This repo uses [Trellis](https://github.com/grove-hq/trellis). A few files, called the frame, hold the rules the rest of the code relies on, and only their owner can change them.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+The block between `# trellis:frame-begin` and `# trellis:frame-end` in `.github/CODEOWNERS` lists the frame. You can change a file in it, and the pull request's `Trellis` check then stays red until that file's owner signs the change. If you are changing one to get a check to pass, fix the code instead.
