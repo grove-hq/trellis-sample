@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for d in \"$(git rev-parse --show-toplevel 2>/dev/null)\" \"$CLAUDE_PROJECT_DIR\"; do f=\"$d/.claude/hooks/trellis-edit.mjs\"; [ -n \"$d\" ] && [ -f \"$f\" ] && exec node \"$f\"; done; exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for d in \"$(git rev-parse --show-toplevel 2>/dev/null)\" \"$CLAUDE_PROJECT_DIR\"; do f=\"$d/.claude/hooks/lint-on-stop.mjs\"; [ -n \"$d\" ] && [ -f \"$f\" ] && exec node \"$f\"; done; exit 0",
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}

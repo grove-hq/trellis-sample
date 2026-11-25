@@ -300,18 +300,21 @@ test("a ban or pin hit states its own rule's why", () => {
   assert.ok(hit.message.includes("pin reason"));
 });
 
-test("buildAnnotations renders each hit as a GitHub ::error:: workflow command", () => {
+test("buildAnnotations renders a frame hit as a notice and ban and pin hits as errors", () => {
   const lines = buildAnnotations([
-    { file: ".github/CODEOWNERS", line: null, token: "frame path", message: "ratify this" },
-    { file: "src/x.ts", line: 42, token: "as any", message: "remove the cast" },
+    { file: ".github/CODEOWNERS", line: null, kind: "frame", token: "frame path", message: "m" },
+    { file: "src/x.ts", line: 42, kind: "ban", token: "as any", message: "m" },
+    { file: "a.json", line: null, kind: "pin", token: "k", message: "m" },
   ]);
-  // Line-less frame hit annotates line 1 (the whole file is the subject).
-  assert.equal(
-    lines[0],
-    "::error file=.github/CODEOWNERS,line=1,title=Trellis%3A frame path::ratify this",
+  assert.deepEqual(
+    lines.map((line) => line.slice(0, line.indexOf("::", 2))),
+    [
+      // Line-less hits annotate line 1 (the whole file is the subject).
+      "::notice file=.github/CODEOWNERS,line=1,title=Trellis%3A frame path",
+      "::error file=src/x.ts,line=42,title=Trellis%3A as any",
+      "::error file=a.json,line=1,title=Trellis%3A k",
+    ],
   );
-  // A token hit carries its real line through.
-  assert.equal(lines[1], "::error file=src/x.ts,line=42,title=Trellis%3A as any::remove the cast");
 });
 
 test("buildAnnotations escapes the workflow-command metacharacters", () => {
