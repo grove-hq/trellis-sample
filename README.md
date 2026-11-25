@@ -52,6 +52,16 @@ Two files in `.trellis/` cover what a whole-file rule cannot:
 
 The check, the signing command and the two workflows are copied from Trellis's [framework](https://github.com/grove-hq/trellis/blob/main/docs/framework.md) into `scripts/trellis/` and `.github/workflows/`. They are in the frame too.
 
+### What makes it binding
+
+The `Trellis` check only blocks a merge because the `main` branch requires it. A branch ruleset on this repo sets:
+
+- Changes reach `main` only through a pull request.
+- Two checks must pass first: `Lint and test` and `Trellis`.
+- Nobody is on the bypass list, and force pushes and deleting the branch are blocked.
+
+No approving review is required, because this sample has one maintainer. The framework's docs give the [settings](https://github.com/grove-hq/trellis/blob/main/docs/framework.md#making-the-check-binding).
+
 ## The baseline
 
 A check like the import fence only reads ordinary code. The end of `eslint.config.mjs` holds a short baseline of standard lint rules that close the general ways around such checks, each with a comment saying what removing it reopens.
