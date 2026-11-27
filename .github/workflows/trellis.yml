@@ -12,7 +12,8 @@ on:
     # `edited` covers a change of base branch. This run comes from the PR's base,
     # so a pass earned against another branch must not carry over to this one.
     # It also fires on a title or body edit; the job is not skipped for those,
-    # because a skipped required check counts as passed.
+    # because a skipped required check counts as passed. Only the annotation
+    # pass is skipped, since the diff is unchanged.
     types: [opened, synchronize, reopened, edited]
 
 permissions:
@@ -88,6 +89,9 @@ jobs:
         env:
           TRELLIS_SIGNATURES: ${{ steps.signatures.outputs.json }}
           TRELLIS_RATIFY_TARGET: ${{ github.repository }}#${{ github.event.pull_request.number }}
+          EVENT_ACTION: ${{ github.event.action }}
+          # Set only when an `edited` event changed the base branch.
+          BASE_WAS: ${{ github.event.changes.base.ref.from }}
         run: |
           HEAD_SHA="$(git rev-parse refs/remotes/pr-head)"
           # Diff against the branch's true fork point, computed from the LIVE
@@ -114,12 +118,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           # Emit inline annotations on the live step stdout (NOT redirected to a
-          # file, so Actions parses the ::error:: workflow commands and attaches
-          # them to the offending file/line in the Files-changed diff and on the
-          # check). Same base/head and --ci allowlist semantics as the verdict
-          # run above; `|| true` keeps this presentation pass from changing the
-          # step result — the captured exit_code above owns pass/fail.
-          node scripts/trellis/tripwire.mjs --ci --annotations "$BASE_SHA" "$HEAD_SHA" || true
+          # file, so Actions parses the workflow commands and attaches them to
+          # the offending file/line in the Files-changed diff and on the check).
+          # Same base/head and --ci allowlist semantics as the verdict run above;
+          # `|| true` keeps this presentation pass from changing the step result
+          # — the captured exit_code above owns pass/fail. Every run adds its own
+          # annotations, so a title or body edit, which leaves the diff as it
+          # was, adds none.
+          if [ "$EVENT_ACTION" != "edited" ] || [ -n "$BASE_WAS" ]; then
+            node scripts/trellis/tripwire.mjs --ci --annotations "$BASE_SHA" "$HEAD_SHA" || true
+          fi
 
       - name: Post or update sticky PR comment
         if: ${{ always() && steps.tripwire.outputs.exit_code != '' }}

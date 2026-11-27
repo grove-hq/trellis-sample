@@ -393,7 +393,11 @@ function escapeProperty(s) {
   return escapeData(s).replace(/:/g, "%3A").replace(/,/g, "%2C");
 }
 
-// Render each hit as a GitHub `::error::` workflow command. Printed to a step's
+// A frame annotation outlives the signature on an earlier run that is never
+// re-run, so it is a notice whose text stays true once the owner has signed.
+const FRAME_ANNOTATION = "Trellis frame file: merging a change to it needs its code owner's signature.";
+
+// Render each hit as a GitHub workflow command. Printed to a step's
 // live stdout, Actions attaches it as an inline annotation on the file (and
 // line, where we have one) in the PR's Files-changed diff and on the check —
 // so the failure reason rides on the check natively, not only in the step log.
@@ -406,6 +410,7 @@ export function buildAnnotations(hits) {
       `line=${h.line ?? 1}`,
       `title=${escapeProperty(`Trellis: ${h.token}`)}`,
     ].join(",");
+    if (h.kind === "frame") return `::notice ${props}::${escapeData(FRAME_ANNOTATION)}`;
     return `::error ${props}::${escapeData(h.message)}`;
   });
 }

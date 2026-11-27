@@ -5,6 +5,9 @@
 /.github/workflows/                 @robertyates
 /scripts/trellis/                   @robertyates
 /.trellis/                          @robertyates
+# The Claude Code hooks, and the settings file that switches them on.
+/.claude/hooks/                     @robertyates
+/.claude/settings.json              @robertyates
 # Authentication: the gate, its public list, and the check that the gate covers every route.
 /src/proxy.ts                       @robertyates
 /src/proxy.public-routes.ts         @robertyates

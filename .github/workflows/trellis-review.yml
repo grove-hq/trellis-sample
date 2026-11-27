@@ -3,6 +3,10 @@
 # Re-runs the Trellis check when a signature comment lands, so a code owner's
 # ratification of a frame touch clears it without a push. Nothing this job does
 # feeds the verdict: that comes only from the base-branch Trellis run it re-runs.
+#
+# Keep this in its own file. A run started by a comment reports on the default
+# branch's tip, which can also be a pull request's head, so no such run may
+# report a check named Trellis. In trellis.yml its job would, even when skipped.
 name: Trellis review rerun
 
 on:

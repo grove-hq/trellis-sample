@@ -15,7 +15,7 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:trellis": "node --test scripts/trellis/tripwire.test.mjs",
+    "test:trellis": "node --test scripts/trellis/tripwire.test.mjs .claude/hooks/hooks.test.mjs",
     "check:proxy-coverage": "tsx scripts/check-proxy-coverage.ts"
   },
   "dependencies": {
