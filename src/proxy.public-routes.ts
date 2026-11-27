@@ -18,6 +18,7 @@ export const publicRoutes: readonly PublicRoute[] = [
   },
 ];
 
+// The path shapes an entry may use.
 const PATTERN = /^(\/[\w.-]+|\/:\w+)*(\/:\w+\*)?$/;
 
 export function pathMatcher(pattern: string): (pathname: string) => boolean {
